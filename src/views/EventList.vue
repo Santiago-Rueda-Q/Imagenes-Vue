@@ -51,11 +51,11 @@
       <div
         v-for="event in events"
         :key="event.id"
-        class="event-card overflow-hidden"
+        class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden"
       >
         <!-- Header con color personalizado -->
         <div
-          class="event-card-header h-4"
+          class="h-4"
           :style="{ backgroundColor: event.color }"
         ></div>
         
@@ -106,21 +106,21 @@
                 severity="info"
                 size="small"
                 @click="viewEvent(event)"
-                v-tooltip="'Ver detalles'"
+                :title="'Ver detalles'"
               />
               <Button
                 icon="pi pi-pencil"
                 severity="warning"
                 size="small"
                 @click="editEvent(event.id)"
-                v-tooltip="'Editar'"
+                :title="'Editar'"
               />
               <Button
                 icon="pi pi-trash"
                 severity="danger"
                 size="small"
                 @click="confirmDelete(event)"
-                v-tooltip="'Eliminar'"
+                :title="'Eliminar'"
               />
             </div>
             
@@ -301,55 +301,77 @@ export default {
   },
   methods: {
     async loadEvents(page = 1) {
-      try {
-        this.loading = true
-        let response
-        
-        const params = {
-          page,
-          per_page: this.pagination.per_page
-        }
+  try {
+    this.loading = true
+    
+    const params = {
+      page,
+      per_page: this.pagination.per_page
+    }
 
-        switch (this.activeFilter) {
-          case 'active':
-            params.is_active = true
-            response = await eventService.getEvents(params)
-            break
-          case 'upcoming':
-            params.upcoming = true
-            response = await eventService.getEvents(params)
-            break
-          case 'past':
-            params.past = true
-            response = await eventService.getEvents(params)
-            break
-          default:
-            response = await eventService.getEvents(params)
-        }
+    switch (this.activeFilter) {
+      case 'active':
+        params.is_active = true
+        break
+      case 'upcoming':
+        params.upcoming = true
+        break
+      case 'past':
+        params.past = true
+        break
+    }
 
-        if (response.data.success) {
-          this.events = response.data.data.data
-          this.pagination = {
-            current_page: response.data.data.current_page,
-            last_page: response.data.data.last_page,
-            per_page: response.data.data.per_page,
-            total: response.data.data.total
-          }
+    console.log('Llamando API con params:', params)
+    const response = await eventService.getEvents(params)
+    console.log('Respuesta completa:', response)
+
+    if (response.data && response.data.success) {
+      console.log('Datos recibidos:', response.data.data)
+      
+      // Verificar la estructura de los datos
+      if (response.data.data && response.data.data.data) {
+        // Respuesta paginada
+        this.events = response.data.data.data
+        this.pagination = {
+          current_page: response.data.data.current_page,
+          last_page: response.data.data.last_page,
+          per_page: response.data.data.per_page,
+          total: response.data.data.total
         }
-      } catch (error) {
-        console.error('Error loading events:', error)
-        this.$toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'Error al cargar los eventos',
-          life: 3000
-        })
-      } finally {
-        this.loading = false
+        console.log('Eventos cargados:', this.events)
+      } else if (Array.isArray(response.data.data)) {
+        // Respuesta simple array
+        this.events = response.data.data
+        console.log('Eventos cargados (array):', this.events)
+      } else {
+        console.log('Estructura de datos no reconocida')
+        this.events = []
       }
-    },
-
-    async setFilter(filter) {
+    } else {
+      console.log('Respuesta no exitosa:', response.data)
+      this.events = []
+      this.$toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudieron cargar los eventos',
+        life: 3000
+      })
+    }
+  } catch (error) {
+    console.error('Error completo:', error)
+    this.events = []
+    this.$toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Error al cargar los eventos: ' + error.message,
+      life: 3000
+    })
+    } finally {
+      this.loading = false
+    }
+  },
+  
+  async setFilter(filter) {
       this.activeFilter = filter
       await this.loadEvents()
     },
@@ -399,7 +421,7 @@ export default {
         this.loading = true
         const response = await eventService.deleteEvent(eventId)
         
-        if (response.data.success) {
+        if (response.data && response.data.success) {
           this.$toast.add({
             severity: 'success',
             summary: 'Éxito',
@@ -425,31 +447,43 @@ export default {
     formatDate(dateString) {
       if (!dateString) return ''
       
-      const date = new Date(dateString)
-      const options = {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long'
+      try {
+        const date = new Date(dateString)
+        const options = {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          weekday: 'long'
+        }
+        
+        return date.toLocaleDateString('es-ES', options)
+      } catch (error) {
+        console.error('Error formatting date:', error)
+        return dateString
       }
-      
-      return date.toLocaleDateString('es-ES', options)
     },
 
     getEventStatus(eventDate) {
-      const today = new Date()
-      const event = new Date(eventDate)
+      if (!eventDate) return 'Sin fecha'
       
-      // Normalizar fechas para comparar solo días
-      today.setHours(0, 0, 0, 0)
-      event.setHours(0, 0, 0, 0)
-      
-      if (event < today) {
-        return 'Pasado'
-      } else if (event.getTime() === today.getTime()) {
-        return 'Hoy'
-      } else {
-        return 'Próximo'
+      try {
+        const today = new Date()
+        const event = new Date(eventDate)
+        
+        // Normalizar fechas para comparar solo días
+        today.setHours(0, 0, 0, 0)
+        event.setHours(0, 0, 0, 0)
+        
+        if (event < today) {
+          return 'Pasado'
+        } else if (event.getTime() === today.getTime()) {
+          return 'Hoy'
+        } else {
+          return 'Próximo'
+        }
+      } catch (error) {
+        console.error('Error getting event status:', error)
+        return 'Sin fecha'
       }
     },
 
@@ -468,6 +502,7 @@ export default {
     },
 
     handleImageError(event) {
+      // Imagen SVG base64 de placeholder
       event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCA3MEM4MCA2MS43MTU3IDg2LjcxNTcgNTUgOTUgNTVIMTA1QzExMy4yODQgNTUgMTIwIDYxLjcxNTcgMTIwIDcwVjEzMEMxMjAgMTM4LjI4NCAxMTMuMjg0IDE0NSAxMDUgMTQ1SDk1Qzg2LjcxNTcgMTQ1IDgwIDEzOC4yODQgODAgMTMwVjcwWiIgZmlsbD0iI0Q1RDVENSIvPgo8cGF0aCBkPSJNOTAgODBDOTAgNzUuMDI5NCA5NC4wMjk0IDcxIDk5IDcxQzEwMy45NzEgNzEgMTA4IDc1LjAyOTQgMTA4IDgwQzEwOCA4NC45NzA2IDEwMy45NzEgODkgOTkgODlDOTQuMDI5NCA4OSA5MCA4NC45NzA2IDkwIDgwWiIgZmlsbD0iI0ZGRkZGRiIvPgo8cGF0aCBkPSJNODUgMTIwTDk1IDExMEwxMDUgMTIwTDExNSAxMTBMMTI1IDEyMFYxMzVIODVWMTIwWiIgZmlsbD0iI0ZGRkZGRiIvPgo8L3N2Zz4K'
     }
   }

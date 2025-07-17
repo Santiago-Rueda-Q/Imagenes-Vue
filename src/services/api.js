@@ -71,8 +71,10 @@ export const eventService = {
   // Obtener todos los eventos
   getEvents: async (params = {}) => {
     try {
+      console.log('Fetching events with params:', params)
       const response = await api.get('/events', { params })
-      return response.data
+      console.log('Events response:', response.data)
+      return response // CAMBIO: Devolver response completo, no response.data
     } catch (error) {
       console.error('Error fetching events:', error)
       throw error
@@ -83,7 +85,7 @@ export const eventService = {
   getEvent: async (id) => {
     try {
       const response = await api.get(`/events/${id}`)
-      return response.data
+      return response // CAMBIO: Devolver response completo
     } catch (error) {
       console.error('Error fetching event:', error)
       throw error
@@ -112,7 +114,7 @@ export const eventService = {
       }
       
       // Agregar campos específicos que espera el controlador
-      const fieldsToSend = ['title', 'description', 'location', 'event_date', 'color', 'is_active']
+      const fieldsToSend = ['title', 'description', 'location', 'event_date', 'color']
       
       fieldsToSend.forEach(key => {
         if (eventData[key] !== null && eventData[key] !== undefined && eventData[key] !== '') {
@@ -120,6 +122,12 @@ export const eventService = {
           formData.append(key, eventData[key])
         }
       })
+      
+      // CORRECCIÓN: Manejar is_active como booleano
+      // Convertir explícitamente a 1 o 0 para Laravel
+      const isActive = eventData.is_active === true || eventData.is_active === 'true' || eventData.is_active === 1
+      console.log(`Adding field: is_active = ${isActive ? 1 : 0}`)
+      formData.append('is_active', isActive ? 1 : 0)
       
       // Agregar imagen (requerida por el controlador)
       if (eventData.image && eventData.image instanceof File) {
@@ -141,7 +149,7 @@ export const eventService = {
         }
       })
       
-      return response.data
+      return response // CAMBIO: Devolver response completo
     } catch (error) {
       console.error('Error creating event:', error)
       
@@ -167,10 +175,16 @@ export const eventService = {
       
       // Agregar campos de texto
       Object.keys(eventData).forEach(key => {
-        if (key !== 'image' && eventData[key] !== null && eventData[key] !== undefined) {
+        if (key !== 'image' && key !== 'is_active' && eventData[key] !== null && eventData[key] !== undefined) {
           formData.append(key, eventData[key])
         }
       })
+      
+      // CORRECCIÓN: Manejar is_active como booleano para actualización también
+      if (eventData.is_active !== null && eventData.is_active !== undefined) {
+        const isActive = eventData.is_active === true || eventData.is_active === 'true' || eventData.is_active === 1
+        formData.append('is_active', isActive ? 1 : 0)
+      }
       
       // Agregar imagen si existe
       if (eventData.image && eventData.image instanceof File) {
@@ -186,7 +200,7 @@ export const eventService = {
         }
       })
       
-      return response.data
+      return response // CAMBIO: Devolver response completo
     } catch (error) {
       console.error('Error updating event:', error)
       throw error
@@ -197,40 +211,9 @@ export const eventService = {
   deleteEvent: async (id) => {
     try {
       const response = await api.delete(`/events/${id}`)
-      return response.data
+      return response // CAMBIO: Devolver response completo
     } catch (error) {
       console.error('Error deleting event:', error)
-      throw error
-    }
-  },
-
-  // Filtros específicos
-  getActiveEvents: async () => {
-    try {
-      const response = await api.get('/events/filter/active')
-      return response.data
-    } catch (error) {
-      console.error('Error fetching active events:', error)
-      throw error
-    }
-  },
-
-  getUpcomingEvents: async () => {
-    try {
-      const response = await api.get('/events/filter/upcoming')
-      return response.data
-    } catch (error) {
-      console.error('Error fetching upcoming events:', error)
-      throw error
-    }
-  },
-
-  getPastEvents: async () => {
-    try {
-      const response = await api.get('/events/filter/past')
-      return response.data
-    } catch (error) {
-      console.error('Error fetching past events:', error)
       throw error
     }
   }
